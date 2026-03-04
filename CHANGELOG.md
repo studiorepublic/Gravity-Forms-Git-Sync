@@ -4,6 +4,8 @@ All notable changes to Gravity Forms Git Sync are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.3] - 2025-03-04
+
 ### Added
 
 - **GitHub Action for releases** — Pushing a version tag (e.g. `v1.0.3`) triggers `.github/workflows/release.yml`, which builds the self-contained zip and creates the GitHub release with the asset attached. No manual zip upload needed.
