@@ -21,22 +21,12 @@ define( 'GF_GIT_SYNC_PLUGIN_FILE', __FILE__ );
 define( 'GF_GIT_SYNC_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
 /**
- * Deactivate if Gravity Forms is not active.
- */
-function gf_git_sync_check_dependencies() {
-	if ( ! class_exists( 'GFForms' ) ) {
-		add_action( 'admin_init', 'gf_git_sync_deactivate' );
-		add_action( 'admin_notices', 'gf_git_sync_missing_gf_notice' );
-		return false;
-	}
-	return true;
-}
-
-/**
- * Deactivate the plugin.
+ * Deactivate the plugin (handles network-wide deactivation).
  */
 function gf_git_sync_deactivate() {
-	deactivate_plugins( plugin_basename( GF_GIT_SYNC_PLUGIN_FILE ) );
+	$plugin = plugin_basename( GF_GIT_SYNC_PLUGIN_FILE );
+	$network_wide = is_multisite() && is_plugin_active_for_network( $plugin );
+	deactivate_plugins( $plugin, false, $network_wide );
 }
 
 /**
@@ -50,18 +40,32 @@ function gf_git_sync_missing_gf_notice() {
 	<?php
 }
 
-if ( ! gf_git_sync_check_dependencies() ) {
-	return;
+/**
+ * Bootstrap: defer until plugins_loaded so Gravity Forms has a chance to load first.
+ * Plugin load order is alphabetical; gravity-forms-git-sync loads before gravityforms
+ * otherwise, causing a false negative on the dependency check.
+ */
+add_action( 'plugins_loaded', 'gf_git_sync_bootstrap', 999 );
+function gf_git_sync_bootstrap() {
+	if ( ! class_exists( 'GFForms' ) ) {
+		add_action( 'admin_init', 'gf_git_sync_deactivate' );
+		add_action( 'admin_notices', 'gf_git_sync_missing_gf_notice' );
+		return;
+	}
+
+	// Composer autoloader.
+	$autoload = GF_GIT_SYNC_PLUGIN_DIR . 'vendor/autoload.php';
+	if ( file_exists( $autoload ) ) {
+		require_once $autoload;
+	}
+
+	gf_git_sync_init_update_checker();
+	gf_git_sync_init();
 }
 
-// Composer autoloader.
-$autoload = GF_GIT_SYNC_PLUGIN_DIR . 'vendor/autoload.php';
-if ( file_exists( $autoload ) ) {
-	require_once $autoload;
-}
-
-// Plugin Update Checker (GitHub releases).
-add_action( 'plugins_loaded', 'gf_git_sync_init_update_checker', 5 );
+/**
+ * Plugin Update Checker (GitHub releases).
+ */
 function gf_git_sync_init_update_checker() {
 	if ( ! class_exists( 'YahnisElsts\PluginUpdateChecker\v5\PucFactory' ) ) {
 		return;
@@ -74,12 +78,10 @@ function gf_git_sync_init_update_checker() {
 	);
 }
 
-// Load plugin.
-add_action( 'plugins_loaded', 'gf_git_sync_init', 10 );
+/**
+ * Load plugin core.
+ */
 function gf_git_sync_init() {
-	if ( ! class_exists( 'GFForms' ) ) {
-		return;
-	}
 	require_once GF_GIT_SYNC_PLUGIN_DIR . 'src/Core/Storage.php';
 	require_once GF_GIT_SYNC_PLUGIN_DIR . 'src/Core/Hashing.php';
 	require_once GF_GIT_SYNC_PLUGIN_DIR . 'src/Core/Logger.php';

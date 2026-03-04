@@ -235,8 +235,17 @@ class SyncStatusPage {
 		$json_exists = file_exists( $form_path );
 		$meta_entry = $meta['forms'][ $sr_key ] ?? [];
 
-		$db_hash = Hashing::hash_form( Transformers::normalise_form( $form ) );
-		$json_hash = $json_exists ? Hashing::hash_file( $form_path ) : null;
+		// Must hash the same structure as Exporter uses (normalise + mask_secrets + sr_key).
+		$exportable = Transformers::normalise_form( $form );
+		$exportable = Transformers::mask_secrets( $exportable );
+		$exportable['sr_key'] = $sr_key;
+		if ( ! empty( $form['gf_git_sync_sr_meta'] ) ) {
+			$exportable['sr_meta'] = $form['gf_git_sync_sr_meta'];
+		}
+		$db_hash = Hashing::hash_form( $exportable );
+		// Hash decoded content, not raw file bytes (file uses JSON_PRETTY_PRINT so byte hash would differ).
+		$json_data = $json_exists ? $storage->read_json( $form_path ) : null;
+		$json_hash = $json_data ? Hashing::hash_form( $json_data ) : null;
 		$last_exported = $meta_entry['last_exported_hash'] ?? null;
 		$last_imported = $meta_entry['last_imported_hash'] ?? null;
 
@@ -327,7 +336,8 @@ class SyncStatusPage {
 	private static function file_url( string $path ): string {
 		$theme = get_stylesheet_directory();
 		if ( strpos( $path, $theme ) === 0 ) {
-			return get_stylesheet_directory_uri() . '/sync/gravity-forms/forms/' . basename( $path );
+			$relative = substr( $path, strlen( $theme ) + 1 );
+			return get_stylesheet_directory_uri() . '/' . str_replace( '\\', '/', $relative );
 		}
 		return 'file://' . $path;
 	}

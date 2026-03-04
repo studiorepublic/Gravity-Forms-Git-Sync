@@ -104,3 +104,4 @@ Secrets are replaced with placeholders on export. Resolve on import via:
 5. Click Export from admin → file updates.
 6. Modify JSON in repo → admin shows JSON ahead; click Import → DB updates.
 7. `wp gf-git-sync validate` → passes.
+8. **Multisite:** On a sub-site, Git Sync → View JSON opens the correct `sites/{blog_id}/forms/` file.

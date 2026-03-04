@@ -93,14 +93,16 @@ class Importer {
 
 		$form = \GFAPI::get_form( $form_id );
 		if ( $form ) {
-			$hash = Hashing::hash_form( $data );
+			// Hash the original JSON content (before placeholder resolution) so it matches file content.
+			$original_data = $this->storage->read_json( $path );
+			$hash = $original_data ? Hashing::hash_form( $original_data ) : '';
 			$meta = $this->storage->read_json( $this->storage->get_meta_path() ) ?? [ 'forms' => [], 'feeds' => [] ];
 			$meta['forms'] = $meta['forms'] ?? [];
 			$meta['forms'][ $sr_key ] = array_merge( $meta['forms'][ $sr_key ] ?? [], [
-				'db_id'            => $form_id,
-				'json_path'        => $path,
+				'db_id'              => $form_id,
+				'json_path'          => $path,
 				'last_imported_hash' => $hash,
-				'last_synced_at'   => gmdate( 'c' ),
+				'last_synced_at'     => gmdate( 'c' ),
 			] );
 			$this->storage->write_json( $this->storage->get_meta_path(), $meta );
 		}
