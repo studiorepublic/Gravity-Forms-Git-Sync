@@ -118,16 +118,22 @@ Secrets are replaced with placeholders on export. Resolve on import via:
 
 Release zips include `vendor/` so the plugin is self-contained.
 
-**GitHub Action (recommended):** Push a version tag and the workflow builds and publishes the release:
+**Release script (recommended):**
 
 ```bash
-git tag v1.0.3
-git push origin v1.0.3
+./scripts/release.sh 1.0.4
 ```
 
-The `.github/workflows/release.yml` workflow runs on tag push, builds the zip, and creates the GitHub release with the asset attached.
+Bumps version, commits, tags, and pushes. The GitHub Action then builds the zip and creates the release. The script is excluded from release zips.
 
-**Manual:** To build locally and attach the zip yourself:
+**Manual tag push:** Alternatively, bump version and changelog yourself, then:
+
+```bash
+git tag v1.0.4
+git push origin v1.0.4
+```
+
+**Manual build:** To build locally and attach the zip yourself:
 
 ```bash
 ./scripts/build-release.sh [version]
