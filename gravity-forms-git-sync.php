@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Gravity Forms Git Sync
  * Description: Store Gravity Forms and feeds as JSON in Git, sync via admin UI or WP-CLI.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Requires at least: 6.0
  * Requires PHP: 8.1
  * Author: Studio Republic
@@ -16,9 +16,72 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'GF_GIT_SYNC_VERSION', '1.0.0' );
+define( 'GF_GIT_SYNC_VERSION', '1.0.1' );
 define( 'GF_GIT_SYNC_PLUGIN_FILE', __FILE__ );
 define( 'GF_GIT_SYNC_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+
+/**
+ * Populate View details modal for plugins not on WordPress.org.
+ */
+add_filter( 'plugins_api', 'gf_git_sync_plugins_api', 10, 3 );
+function gf_git_sync_plugins_api( $result, $action, $args ) {
+	if ( $action !== 'plugin_information' ) {
+		return $result;
+	}
+	$slug = isset( $args->slug ) ? $args->slug : '';
+	if ( $slug !== 'gravity-forms-git-sync' ) {
+		return $result;
+	}
+
+	$readme = GF_GIT_SYNC_PLUGIN_DIR . 'readme.txt';
+	$readme_content = file_exists( $readme ) ? file_get_contents( $readme ) : '';
+
+	$info = new \stdClass();
+	$info->name = 'Gravity Forms Git Sync';
+	$info->slug = 'gravity-forms-git-sync';
+	$info->version = GF_GIT_SYNC_VERSION;
+	$info->author = 'Studio Republic';
+	$info->author_profile = '';
+	$info->requires = '6.0';
+	$info->tested = get_bloginfo( 'version' );
+	$info->requires_php = '8.1';
+	$info->last_updated = gmdate( 'Y-m-d', filemtime( GF_GIT_SYNC_PLUGIN_FILE ) );
+	$info->homepage = 'https://github.com/studiorepublic/Gravity-Forms-Git-Sync';
+	$info->short_description = __( 'Store Gravity Forms and add-on feeds as JSON in Git. Sync via admin UI or WP-CLI.', 'gravity-forms-git-sync' );
+	$info->sections = [
+		'description'  => gf_git_sync_parse_readme_section( $readme_content, 'Description' ),
+		'installation' => gf_git_sync_parse_readme_section( $readme_content, 'Installation' ),
+		'configuration' => gf_git_sync_parse_readme_section( $readme_content, 'Configuration' ),
+		'changelog'    => gf_git_sync_parse_readme_section( $readme_content, 'Changelog' ),
+	];
+
+	return $info;
+}
+
+/**
+ * Parse a section from readme.txt.
+ *
+ * @param string $content Full readme content.
+ * @param string $section Section name (e.g. Description, Installation).
+ * @return string HTML.
+ */
+function gf_git_sync_parse_readme_section( $content, $section ) {
+	if ( ! $content ) {
+		return '<p>' . esc_html__( 'See README.md in the plugin directory.', 'gravity-forms-git-sync' ) . '</p>';
+	}
+	$section_header = "== {$section} ==";
+	$pos = stripos( $content, $section_header );
+	if ( $pos === false ) {
+		return '';
+	}
+	$start = $pos + strlen( $section_header );
+	$next = preg_match( '/\n== [^\n]+ ==\s*\n/', $content, $m, PREG_OFFSET_CAPTURE, $start )
+		? $m[0][1]
+		: strlen( $content );
+	$text = trim( substr( $content, $start, $next - $start ) );
+	$text = wp_kses( $text, [ 'a' => [ 'href' => [] ], 'code' => [], 'em' => [], 'strong' => [], 'br' => [] ] );
+	return wpautop( $text );
+}
 
 /**
  * Deactivate the plugin (handles network-wide deactivation).

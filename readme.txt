@@ -5,7 +5,7 @@ Tags: gravity forms, git, sync, forms, export, import, version control
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -38,6 +38,11 @@ Gravity Forms Git Sync mirrors the ACF Local JSON workflow for Gravity Forms:
 * `GF_GIT_SYNC_ARCHIVE_DELETES` — Archive deleted forms/feeds (default: true)
 
 == Changelog ==
+
+= 1.0.1 =
+* View details on Plugins page (plugins_api filter for non-wp.org plugins)
+* Fix View JSON URL for multisite sub-sites (sites/{blog_id}/forms/)
+* Fix sync status hash comparison (false DB/JSON ahead states)
 
 = 1.0.0 =
 * Initial release

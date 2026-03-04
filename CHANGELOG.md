@@ -4,6 +4,12 @@ All notable changes to Gravity Forms Git Sync are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-03-04
+
+### Added
+
+- **View details on Plugins page** — The "View details" link in the Plugins screen now shows plugin info (description, installation, configuration, changelog) by providing data via the `plugins_api` filter. The plugin is not on WordPress.org, so the modal was previously empty. The "tested" value is set to the current WordPress version to avoid the "not been tested" warning.
+
 ### Fixed
 
 - **View JSON on sub-sites** — The "View JSON" button on the Git Sync admin page now uses the correct URL for forms stored under `sites/{blog_id}/forms/` in multisite. Previously it always pointed at `forms/{basename}`, which failed for sub-site forms.
