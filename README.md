@@ -116,10 +116,21 @@ Secrets are replaced with placeholders on export. Resolve on import via:
 
 ## Building Releases
 
-Release zips include `vendor/` so the plugin is self-contained. Build with:
+Release zips include `vendor/` so the plugin is self-contained.
+
+**GitHub Action (recommended):** Push a version tag and the workflow builds and publishes the release:
+
+```bash
+git tag v1.0.3
+git push origin v1.0.3
+```
+
+The `.github/workflows/release.yml` workflow runs on tag push, builds the zip, and creates the GitHub release with the asset attached.
+
+**Manual:** To build locally and attach the zip yourself:
 
 ```bash
 ./scripts/build-release.sh [version]
 ```
 
-The zip is written to `dist/`. Attach it to the GitHub release so the Plugin Update Checker serves it to existing installations.
+The zip is written to `dist/`. Attach it to the GitHub release.

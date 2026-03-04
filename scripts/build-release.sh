@@ -43,6 +43,7 @@ rsync -a \
   --exclude='*.log' \
   --exclude='node_modules' \
   --exclude='scripts' \
+  --exclude='.github' \
   . "$BUILD_DIR/gravity-forms-git-sync/"
 
 # Create zip with plugin directory as root (wp-content/plugins/gravity-forms-git-sync/)
