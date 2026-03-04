@@ -5,7 +5,7 @@ Tags: gravity forms, git, sync, forms, export, import, version control
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,10 +25,15 @@ Gravity Forms Git Sync mirrors the ACF Local JSON workflow for Gravity Forms:
 == Installation ==
 
 1. Install and activate Gravity Forms.
-2. Upload the plugin to wp-content/plugins/gravity-forms-git-sync.
-3. Activate via Plugins screen.
-4. Run `composer install` in the plugin directory (or use a pre-built release with vendor/).
-5. JSON files are stored in the active theme: wp-content/themes/YOUR-THEME/sync/gravity-forms/
+2. Download the latest release zip from the GitHub releases page.
+3. Extract to wp-content/plugins/gravity-forms-git-sync (or upload and extract).
+4. Activate via Plugins screen.
+
+Release zips are self-contained and include vendor/. No Composer required.
+
+If installing from source, run `composer install` in the plugin directory.
+
+JSON files are stored in the active theme: wp-content/themes/YOUR-THEME/sync/gravity-forms/
 
 == Configuration ==
 
@@ -38,6 +43,10 @@ Gravity Forms Git Sync mirrors the ACF Local JSON workflow for Gravity Forms:
 * `GF_GIT_SYNC_ARCHIVE_DELETES` — Archive deleted forms/feeds (default: true)
 
 == Changelog ==
+
+= 1.0.2 =
+* Self-contained releases: release zips now include vendor/ (no Composer needed)
+* Added scripts/build-release.sh for building release zips
 
 = 1.0.1 =
 * View details on Plugins page (plugins_api filter for non-wp.org plugins)

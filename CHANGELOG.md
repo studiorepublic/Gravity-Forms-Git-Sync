@@ -4,6 +4,12 @@ All notable changes to Gravity Forms Git Sync are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.2] - 2025-03-04
+
+### Changed
+
+- **Self-contained releases** — GitHub release zips now include the `vendor/` directory. No Composer is required when installing from a release. Added `scripts/build-release.sh` to build the zip; attach the output to each release. Plugin Update Checker uses `enableReleaseAssets()` to serve the zip instead of the source archive.
+
 ## [1.0.1] - 2025-03-04
 
 ### Added

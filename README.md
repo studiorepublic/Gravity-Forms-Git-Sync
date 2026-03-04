@@ -10,10 +10,18 @@ Store Gravity Forms and add-on feeds as deterministic JSON in Git. Sync via admi
 
 ## Installation
 
+**From GitHub release (recommended):**
 1. Install Gravity Forms.
-2. Clone or download this plugin into `wp-content/plugins/gravity-forms-git-sync/`.
-3. Run `composer install` in the plugin directory.
+2. Download the latest release zip from [Releases](https://github.com/studiorepublic/Gravity-Forms-Git-Sync/releases).
+3. Extract into `wp-content/plugins/gravity-forms-git-sync/`.
 4. Activate via Plugins screen.
+
+Release zips are self-contained (include `vendor/`). No Composer needed.
+
+**From source (development):**
+1. Clone the repo into `wp-content/plugins/gravity-forms-git-sync/`.
+2. Run `composer install` in the plugin directory.
+3. Activate via Plugins screen.
 
 ## Storage
 
@@ -105,3 +113,13 @@ Secrets are replaced with placeholders on export. Resolve on import via:
 6. Modify JSON in repo → admin shows JSON ahead; click Import → DB updates.
 7. `wp gf-git-sync validate` → passes.
 8. **Multisite:** On a sub-site, Git Sync → View JSON opens the correct `sites/{blog_id}/forms/` file.
+
+## Building Releases
+
+Release zips include `vendor/` so the plugin is self-contained. Build with:
+
+```bash
+./scripts/build-release.sh [version]
+```
+
+The zip is written to `dist/`. Attach it to the GitHub release so the Plugin Update Checker serves it to existing installations.

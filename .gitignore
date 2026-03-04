@@ -1,0 +1,9 @@
+# Build output
+dist/
+build/
+
+# Composer (use build script for releases; dev uses local vendor)
+vendor/
+
+# OS
+.DS_Store
