@@ -5,7 +5,7 @@ Tags: gravity forms, git, sync, forms, export, import, version control
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -43,6 +43,9 @@ JSON files are stored in the active theme: wp-content/themes/YOUR-THEME/sync/gra
 * `GF_GIT_SYNC_ARCHIVE_DELETES` — Archive deleted forms/feeds (default: true)
 
 == Changelog ==
+
+= 1.0.4 =
+* Release
 
 = 1.0.3 =
 * GitHub Action for releases: tag push builds zip and creates release

@@ -4,6 +4,8 @@ All notable changes to Gravity Forms Git Sync are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-03-04
+
 ## [1.0.3] - 2025-03-04
 
 ### Added
