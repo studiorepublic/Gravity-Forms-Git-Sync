@@ -75,10 +75,13 @@ wp gf-git-sync import --url=concordia.test/seasonal/
 
 ## Stable Keys (sr_key)
 
-Forms are identified by `sr_key`. By default:
+Forms are identified by `sr_key`. On export:
 
-- Use `form_key` if set (GF 2.5+)
+- Use `gf_git_sync_sr_key` if set (form settings)
+- Otherwise `form_key` if set (GF 2.5+)
 - Otherwise derive from form title slug
+
+On import, the plugin uses `sr_key` from the JSON content (or filename) to match existing forms. Matching is by meta index and `gf_git_sync_sr_key` only—never by form ID or `form_key`, so multiple forms import correctly on fresh sites.
 
 Feeds use `{form_sr_key}.{addon_slug}.{feed_name}`.
 

@@ -66,6 +66,9 @@ class Importer {
 			return null;
 		}
 
+		// Use sr_key from JSON content when present; otherwise use filename.
+		$canonical_sr_key = ! empty( $data['sr_key'] ) ? sanitize_key( (string) $data['sr_key'] ) : $sr_key;
+
 		try {
 			$data = EnvResolver::resolve_placeholders( $data, ! $this->allow_missing_secrets );
 		} catch ( \Throwable $e ) {
@@ -73,17 +76,23 @@ class Importer {
 			return null;
 		}
 
-		$existing_id = $this->find_form_by_sr_key( $sr_key );
+		// Ensure form is tagged with sr_key meta for consistent lookup.
+		$data['gf_git_sync_sr_key'] = $canonical_sr_key;
+		$data['sr_key']             = $canonical_sr_key;
+
+		// Strip form ID so we never use it for matching; matching is by sr_key only.
+		unset( $data['id'] );
+
+		$existing_id = $this->find_form_by_sr_key( $canonical_sr_key );
 		if ( $existing_id && $mode === 'sync' ) {
 			$data['id'] = $existing_id;
-			$result = \GFAPI::update_form( $data );
+			$result     = \GFAPI::update_form( $data );
 			if ( is_wp_error( $result ) ) {
 				Logger::error( $result->get_error_message() );
 				return null;
 			}
 			$form_id = $existing_id;
 		} else {
-			unset( $data['id'] );
 			$form_id = \GFAPI::add_form( $data );
 			if ( is_wp_error( $form_id ) ) {
 				Logger::error( $form_id->get_error_message() );
@@ -98,7 +107,7 @@ class Importer {
 			$hash = $original_data ? Hashing::hash_form( $original_data ) : '';
 			$meta = $this->storage->read_json( $this->storage->get_meta_path() ) ?? [ 'forms' => [], 'feeds' => [] ];
 			$meta['forms'] = $meta['forms'] ?? [];
-			$meta['forms'][ $sr_key ] = array_merge( $meta['forms'][ $sr_key ] ?? [], [
+			$meta['forms'][ $canonical_sr_key ] = array_merge( $meta['forms'][ $canonical_sr_key ] ?? [], [
 				'db_id'              => $form_id,
 				'json_path'          => $path,
 				'last_imported_hash' => $hash,
@@ -182,6 +191,10 @@ class Importer {
 				$result['forms']++;
 				continue;
 			}
+			// Resolve canonical sr_key from JSON for feed matching.
+			$form_data        = $this->storage->read_json( $form_path );
+			$feed_form_sr_key = ! empty( $form_data['sr_key'] ) ? sanitize_key( (string) $form_data['sr_key'] ) : $sr_key;
+
 			$form_id = $this->import_form( $sr_key, $mode );
 			if ( $form_id ) {
 				$result['forms']++;
@@ -189,7 +202,7 @@ class Importer {
 				$feed_files = glob( $feeds_dir . '/*.feed.json' );
 				foreach ( $feed_files ?? [] as $feed_path ) {
 					$feed_data = $this->storage->read_json( $feed_path );
-					if ( ! $feed_data || ( $feed_data['form_sr_key'] ?? '' ) !== $sr_key ) {
+					if ( ! $feed_data || ( $feed_data['form_sr_key'] ?? '' ) !== $feed_form_sr_key ) {
 						continue;
 					}
 					$feed_sr_key = $feed_data['sr_key'] ?? basename( $feed_path, '.feed.json' );
@@ -205,7 +218,9 @@ class Importer {
 	}
 
 	/**
-	 * Find form ID by sr_key (from meta or by matching form_key).
+	 * Find form ID by sr_key (from meta or by matching gf_git_sync_sr_key).
+	 *
+	 * Uses sr_key meta only; form_key is not used to avoid collisions with form IDs.
 	 *
 	 * @param string $sr_key Form sr_key.
 	 * @return int|null
@@ -217,11 +232,11 @@ class Importer {
 			$form = \GFAPI::get_form( $id );
 			return $form ? $id : null;
 		}
+		// Fallback: match by gf_git_sync_sr_key only (never form_key, which can collide with IDs).
 		$forms = \GFAPI::get_forms();
 		foreach ( $forms as $form ) {
-			$form_key = $form['form_key'] ?? '';
 			$gf_sync_key = $form['gf_git_sync_sr_key'] ?? '';
-			if ( ( $form_key && $form_key === $sr_key ) || $gf_sync_key === $sr_key ) {
+			if ( $gf_sync_key === $sr_key ) {
 				return (int) $form['id'];
 			}
 		}

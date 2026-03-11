@@ -92,18 +92,23 @@ class ActionsController {
 	private static function do_import( string $sr_key, int $form_id ): void {
 		// Allow missing secrets so feeds with placeholders (e.g. {{STRIPE_SECRET_KEY}}) still import.
 		$importer = new Importer( null, null, true );
-		$form_id = $importer->import_form( $sr_key, 'sync' );
+		$storage  = $importer->get_storage();
+		$form_id  = $importer->import_form( $sr_key, 'sync' );
 		if ( ! $form_id ) {
 			wp_redirect( add_query_arg( 'gf_git_sync_error', 'import_failed', self::redirect_base() ) );
 			exit;
 		}
+		// Resolve canonical sr_key from form JSON for feed matching.
+		$form_path       = $storage->get_form_path( $sr_key );
+		$form_data       = $storage->read_json( $form_path );
+		$feed_form_sr_key = ! empty( $form_data['sr_key'] ) ? sanitize_key( (string) $form_data['sr_key'] ) : $sr_key;
+
 		// Import feeds for this form.
-		$storage = $importer->get_storage();
-		$feeds_dir = $storage->get_base_path() . '/feeds';
+		$feeds_dir  = $storage->get_base_path() . '/feeds';
 		$feed_files = is_dir( $feeds_dir ) ? glob( $feeds_dir . '/*.feed.json' ) : [];
 		foreach ( $feed_files ?? [] as $feed_path ) {
 			$data = $storage->read_json( $feed_path );
-			if ( $data && ( $data['form_sr_key'] ?? '' ) === $sr_key ) {
+			if ( $data && ( $data['form_sr_key'] ?? '' ) === $feed_form_sr_key ) {
 				$feed_sr_key = $data['sr_key'] ?? basename( $feed_path, '.feed.json' );
 				$importer->import_feed( $feed_sr_key, $form_id, 'sync' );
 			}
@@ -155,9 +160,12 @@ class ActionsController {
 				$form_id = $importer->import_form( $sr_key, 'sync' );
 				if ( $form_id ) {
 					$count++;
+					$form_path        = $storage->get_form_path( $sr_key );
+					$form_data        = $storage->read_json( $form_path );
+					$feed_form_sr_key = ! empty( $form_data['sr_key'] ) ? sanitize_key( (string) $form_data['sr_key'] ) : $sr_key;
 					foreach ( $feed_files ?? [] as $feed_path ) {
 						$data = $storage->read_json( $feed_path );
-						if ( $data && ( $data['form_sr_key'] ?? '' ) === $sr_key ) {
+						if ( $data && ( $data['form_sr_key'] ?? '' ) === $feed_form_sr_key ) {
 							$feed_sr_key = $data['sr_key'] ?? basename( $feed_path, '.feed.json' );
 							$importer->import_feed( $feed_sr_key, $form_id, 'sync' );
 						}
@@ -169,17 +177,23 @@ class ActionsController {
 	}
 
 	/**
-	 * Find form ID by sr_key.
+	 * Find form ID by sr_key (meta and gf_git_sync_sr_key only; form_key excluded to avoid ID collisions).
 	 *
 	 * @param string $sr_key Sr key.
 	 * @return int|null
 	 */
 	private static function find_form_id( string $sr_key ): ?int {
+		$storage = new Storage();
+		$meta   = $storage->read_json( $storage->get_meta_path() );
+		if ( ! empty( $meta['forms'][ $sr_key ]['db_id'] ) ) {
+			$id   = (int) $meta['forms'][ $sr_key ]['db_id'];
+			$form = \GFAPI::get_form( $id );
+			return $form ? $id : null;
+		}
 		$forms = \GFAPI::get_forms();
 		foreach ( $forms as $form ) {
-			$fk = $form['form_key'] ?? '';
 			$gk = $form['gf_git_sync_sr_key'] ?? '';
-			if ( ( $fk && $fk === $sr_key ) || $gk === $sr_key ) {
+			if ( $gk === $sr_key ) {
 				return (int) $form['id'];
 			}
 			$title_slug = sanitize_key( sanitize_title( $form['title'] ?? '' ) );
