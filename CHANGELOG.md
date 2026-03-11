@@ -8,7 +8,9 @@ All notable changes to Gravity Forms Git Sync are documented in this file.
 
 ### Fixed
 
-- **Import used form ID instead of sr_key** — On a fresh site, importing two forms caused the second to overwrite the first because matching sometimes used `form_key` (which can equal form ID) instead of `sr_key` meta. Import now: (1) uses `sr_key` from JSON content when present, otherwise filename; (2) always sets `gf_git_sync_sr_key` on imported forms for consistent lookup; (3) strips form `id` before add so it is never used for matching; (4) matches existing forms by meta and `gf_git_sync_sr_key` only—`form_key` is no longer used to avoid collisions. Feed import uses the canonical sr_key from the form JSON for matching.
+- **Import used form ID instead of sr_key** — On a fresh site, importing two forms caused the second to overwrite the first. Root cause: meta index can contain stale `sr_key` → `db_id` mappings after a DB reset. Fix: validate form's `gf_git_sync_sr_key` when resolving from meta; if mismatch, treat as not found. Also: use sr_key from JSON, set gf_git_sync_sr_key on import, strip id, match by meta + gf_git_sync_sr_key only.
+
+- **Feeds imported to wrong form / no feeds** — (1) Matching: use filename first segment when 2+ segments, else JSON form_sr_key. (2) Stale meta: when resolving existing feed from meta, validate the feed's form_id matches; if not, add a new feed instead of updating the wrong one. (3) Update feed meta index on successful import so subsequent lookups work. FeedImporter uses the form's `gf_git_sync_sr_key` for field map loading.
 
 ## [1.0.5] - 2026-03-11
 

@@ -43,7 +43,9 @@ class FeedImporter {
 		}
 
 		$meta = $feed_data['meta'] ?? [];
-		$field_map = self::load_field_map( $feed_data['form_sr_key'] ?? '', $form );
+		// Use form's gf_git_sync_sr_key for map (feed JSON form_sr_key can be stale/wrong).
+		$form_sr_key = $form['gf_git_sync_sr_key'] ?? $feed_data['form_sr_key'] ?? '';
+		$field_map   = self::load_field_map( $form_sr_key, $form );
 		$meta = FieldMapper::rewrite_feed_meta_for_import( $meta, $field_map, $addon_slug );
 
 		try {

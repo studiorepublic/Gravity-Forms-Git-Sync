@@ -106,12 +106,24 @@ class ActionsController {
 		// Import feeds for this form.
 		$feeds_dir  = $storage->get_base_path() . '/feeds';
 		$feed_files = is_dir( $feeds_dir ) ? glob( $feeds_dir . '/*.feed.json' ) : [];
+
 		foreach ( $feed_files ?? [] as $feed_path ) {
 			$data = $storage->read_json( $feed_path );
-			if ( $data && ( $data['form_sr_key'] ?? '' ) === $feed_form_sr_key ) {
-				$feed_sr_key = $data['sr_key'] ?? basename( $feed_path, '.feed.json' );
-				$importer->import_feed( $feed_sr_key, $form_id, 'sync' );
+			if ( ! $data ) {
+				continue;
 			}
+			$feed_basename      = basename( $feed_path, '.feed.json' );
+			$segments           = explode( '.', $feed_basename );
+			$feed_filename_form = count( $segments ) >= 2 ? ( $segments[0] ?? '' ) : '';
+			$json_form          = $data['form_sr_key'] ?? '';
+			$belongs_to_form    = $feed_filename_form
+				? ( $feed_filename_form === $feed_form_sr_key )
+				: ( $json_form === $feed_form_sr_key );
+			if ( ! $belongs_to_form ) {
+				continue;
+			}
+			$feed_sr_key = $data['sr_key'] ?? $feed_basename;
+			$importer->import_feed( $feed_sr_key, $form_id, 'sync' );
 		}
 		wp_redirect( add_query_arg( 'gf_git_sync_status', 'imported', self::redirect_base() ) );
 		exit;
@@ -154,6 +166,7 @@ class ActionsController {
 		$storage = $importer->get_storage();
 		$feeds_dir = $storage->get_base_path() . '/feeds';
 		$feed_files = is_dir( $feeds_dir ) ? glob( $feeds_dir . '/*.feed.json' ) : [];
+
 		foreach ( $status['rows'] as $row ) {
 			if ( ( $row['can_import'] ?? false ) && ! empty( $row['sr_key'] ) ) {
 				$sr_key = $row['sr_key'];
@@ -165,10 +178,21 @@ class ActionsController {
 					$feed_form_sr_key = ! empty( $form_data['sr_key'] ) ? sanitize_key( (string) $form_data['sr_key'] ) : $sr_key;
 					foreach ( $feed_files ?? [] as $feed_path ) {
 						$data = $storage->read_json( $feed_path );
-						if ( $data && ( $data['form_sr_key'] ?? '' ) === $feed_form_sr_key ) {
-							$feed_sr_key = $data['sr_key'] ?? basename( $feed_path, '.feed.json' );
-							$importer->import_feed( $feed_sr_key, $form_id, 'sync' );
+						if ( ! $data ) {
+							continue;
 						}
+						$feed_basename      = basename( $feed_path, '.feed.json' );
+						$segments           = explode( '.', $feed_basename );
+						$feed_filename_form = count( $segments ) >= 2 ? ( $segments[0] ?? '' ) : '';
+						$json_form          = $data['form_sr_key'] ?? '';
+						$belongs_to_form    = $feed_filename_form
+							? ( $feed_filename_form === $feed_form_sr_key )
+							: ( $json_form === $feed_form_sr_key );
+						if ( ! $belongs_to_form ) {
+							continue;
+						}
+						$feed_sr_key = $data['sr_key'] ?? $feed_basename;
+						$importer->import_feed( $feed_sr_key, $form_id, 'sync' );
 					}
 				}
 			}
@@ -184,11 +208,14 @@ class ActionsController {
 	 */
 	private static function find_form_id( string $sr_key ): ?int {
 		$storage = new Storage();
-		$meta   = $storage->read_json( $storage->get_meta_path() );
+		$meta   = $storage->read_json( $storage->get_meta_path() ) ?? [];
 		if ( ! empty( $meta['forms'][ $sr_key ]['db_id'] ) ) {
 			$id   = (int) $meta['forms'][ $sr_key ]['db_id'];
 			$form = \GFAPI::get_form( $id );
-			return $form ? $id : null;
+			// Only trust meta if form exists and gf_git_sync_sr_key matches (meta can be stale).
+			if ( $form && ( $form['gf_git_sync_sr_key'] ?? '' ) === $sr_key ) {
+				return $id;
+			}
 		}
 		$forms = \GFAPI::get_forms();
 		foreach ( $forms as $form ) {

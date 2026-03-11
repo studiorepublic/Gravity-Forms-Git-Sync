@@ -84,6 +84,7 @@ class Importer {
 		unset( $data['id'] );
 
 		$existing_id = $this->find_form_by_sr_key( $canonical_sr_key );
+
 		if ( $existing_id && $mode === 'sync' ) {
 			$data['id'] = $existing_id;
 			$result     = \GFAPI::update_form( $data );
@@ -135,25 +136,45 @@ class Importer {
 		}
 
 		$prepared = FeedImporter::prepare_for_import( $data, $form_id, $this->allow_missing_secrets );
+
 		if ( ! $prepared ) {
 			return null;
 		}
 
 		$existing_id = $this->find_feed_by_sr_key( $feed_sr_key );
+		// Only trust meta if the feed exists and belongs to our form (meta can be stale after DB reset).
+		if ( $existing_id && $mode === 'sync' ) {
+			$form_feeds = \GFAPI::get_feeds( null, $form_id, null, null );
+			$belongs_to_form = false;
+			if ( is_array( $form_feeds ) ) {
+				foreach ( $form_feeds as $f ) {
+					if ( (int) ( $f['id'] ?? 0 ) === $existing_id ) {
+						$belongs_to_form = true;
+						break;
+					}
+				}
+			}
+			if ( ! $belongs_to_form ) {
+				$existing_id = null;
+			}
+		}
 		if ( $existing_id && $mode === 'sync' ) {
 			$result = \GFAPI::update_feed( $existing_id, $prepared['meta'] );
 			if ( is_wp_error( $result ) ) {
 				Logger::error( $result->get_error_message() );
 				return null;
 			}
+			$this->update_feed_meta( $feed_sr_key, $data['form_sr_key'] ?? '', $prepared['addon_slug'], $existing_id, $path );
 			return $existing_id;
 		}
 
 		$feed_id = \GFAPI::add_feed( $form_id, $prepared['meta'], $prepared['addon_slug'] );
+
 		if ( is_wp_error( $feed_id ) ) {
 			Logger::error( $feed_id->get_error_message() );
 			return null;
 		}
+		$this->update_feed_meta( $feed_sr_key, $data['form_sr_key'] ?? '', $prepared['addon_slug'], $feed_id, $path );
 		return $feed_id;
 	}
 
@@ -202,10 +223,21 @@ class Importer {
 				$feed_files = glob( $feeds_dir . '/*.feed.json' );
 				foreach ( $feed_files ?? [] as $feed_path ) {
 					$feed_data = $this->storage->read_json( $feed_path );
-					if ( ! $feed_data || ( $feed_data['form_sr_key'] ?? '' ) !== $feed_form_sr_key ) {
+					if ( ! $feed_data ) {
 						continue;
 					}
-					$feed_sr_key = $feed_data['sr_key'] ?? basename( $feed_path, '.feed.json' );
+					// Match: filename (form.addon.name) when 2+ segments, else JSON form_sr_key.
+					$feed_basename     = basename( $feed_path, '.feed.json' );
+					$segments          = explode( '.', $feed_basename );
+					$feed_filename_form = count( $segments ) >= 2 ? ( $segments[0] ?? '' ) : '';
+					$json_form         = $feed_data['form_sr_key'] ?? '';
+					$belongs_to_form   = $feed_filename_form
+						? ( $feed_filename_form === $feed_form_sr_key )
+						: ( $json_form === $feed_form_sr_key );
+					if ( ! $belongs_to_form ) {
+						continue;
+					}
+					$feed_sr_key = $feed_data['sr_key'] ?? $feed_basename;
 					$feed_id = $this->import_feed( $feed_sr_key, $form_id, $mode );
 					if ( $feed_id ) {
 						$result['feeds']++;
@@ -226,11 +258,17 @@ class Importer {
 	 * @return int|null
 	 */
 	private function find_form_by_sr_key( string $sr_key ): ?int {
-		$meta = $this->storage->read_json( $this->storage->get_meta_path() );
-		if ( ! empty( $meta['forms'][ $sr_key ]['db_id'] ) ) {
-			$id = (int) $meta['forms'][ $sr_key ]['db_id'];
+		$meta = $this->storage->read_json( $this->storage->get_meta_path() ) ?? [];
+		$meta_forms = $meta['forms'] ?? [];
+
+		if ( ! empty( $meta_forms[ $sr_key ]['db_id'] ) ) {
+			$id = (int) $meta_forms[ $sr_key ]['db_id'];
 			$form = \GFAPI::get_form( $id );
-			return $form ? $id : null;
+			// Only trust meta if the form exists AND has matching gf_git_sync_sr_key (meta can be stale after DB reset).
+			if ( $form && ( $form['gf_git_sync_sr_key'] ?? '' ) === $sr_key ) {
+				return $id;
+			}
+			// Stale meta: form missing or sr_key mismatch; fall through to DB scan.
 		}
 		// Fallback: match by gf_git_sync_sr_key only (never form_key, which can collide with IDs).
 		$forms = \GFAPI::get_forms();
@@ -250,11 +288,36 @@ class Importer {
 	 * @return int|null
 	 */
 	private function find_feed_by_sr_key( string $sr_key ): ?int {
-		$meta = $this->storage->read_json( $this->storage->get_meta_path() );
+		$meta = $this->storage->read_json( $this->storage->get_meta_path() ) ?? [];
 		if ( ! empty( $meta['feeds'][ $sr_key ]['db_id'] ) ) {
 			return (int) $meta['feeds'][ $sr_key ]['db_id'];
 		}
 		return null;
+	}
+
+	/**
+	 * Update feed entry in meta index after successful import.
+	 *
+	 * @param string $sr_key       Feed sr_key.
+	 * @param string $form_sr_key  Form sr_key.
+	 * @param string $addon_slug   Addon slug.
+	 * @param int    $db_id        DB feed ID.
+	 * @param string $path        JSON path.
+	 */
+	private function update_feed_meta( string $sr_key, string $form_sr_key, string $addon_slug, int $db_id, string $path ): void {
+		$original = $this->storage->read_json( $path );
+		$hash = $original ? Hashing::hash_feed( $original ) : '';
+		$meta = $this->storage->read_json( $this->storage->get_meta_path() ) ?? [ 'forms' => [], 'feeds' => [] ];
+		$meta['feeds'] = $meta['feeds'] ?? [];
+		$meta['feeds'][ $sr_key ] = array_merge( $meta['feeds'][ $sr_key ] ?? [], [
+			'form_sr_key'        => $form_sr_key,
+			'addon_slug'         => $addon_slug,
+			'db_id'              => $db_id,
+			'json_path'          => $path,
+			'last_imported_hash' => $hash,
+			'last_synced_at'     => gmdate( 'c' ),
+		] );
+		$this->storage->write_json( $this->storage->get_meta_path(), $meta );
 	}
 
 	/**
