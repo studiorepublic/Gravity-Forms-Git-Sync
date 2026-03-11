@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Gravity Forms Git Sync
  * Description: Store Gravity Forms and feeds as JSON in Git, sync via admin UI or WP-CLI.
- * Version: 1.0.5
+ * Version: 1.0.6
  * Requires at least: 6.0
  * Requires PHP: 8.1
  * Author: Studio Republic
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'GF_GIT_SYNC_VERSION', '1.0.5' );
+define( 'GF_GIT_SYNC_VERSION', '1.0.6' );
 define( 'GF_GIT_SYNC_PLUGIN_FILE', __FILE__ );
 define( 'GF_GIT_SYNC_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 

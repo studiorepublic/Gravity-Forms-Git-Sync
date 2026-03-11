@@ -4,6 +4,8 @@ All notable changes to Gravity Forms Git Sync are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-03-11
+
 ### Fixed
 
 - **Import used form ID instead of sr_key** — On a fresh site, importing two forms caused the second to overwrite the first because matching sometimes used `form_key` (which can equal form ID) instead of `sr_key` meta. Import now: (1) uses `sr_key` from JSON content when present, otherwise filename; (2) always sets `gf_git_sync_sr_key` on imported forms for consistent lookup; (3) strips form `id` before add so it is never used for matching; (4) matches existing forms by meta and `gf_git_sync_sr_key` only—`form_key` is no longer used to avoid collisions. Feed import uses the canonical sr_key from the form JSON for matching.
