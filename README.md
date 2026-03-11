@@ -42,7 +42,7 @@ On multisite, non-main sites use `sites/{blog_id}/` subfolders.
 
 ### Admin UI
 
-**Forms → Git Sync** — View sync status, export/import individual forms, bulk actions.
+**Forms → Git Sync** — View sync status, export/import individual forms, bulk actions. When a form is out of sync, use **View diff** to compare Database vs JSON file side-by-side.
 
 ### WP-CLI
 

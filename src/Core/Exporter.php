@@ -103,17 +103,50 @@ class Exporter {
 	}
 
 	/**
+	 * Export all feeds for a form.
+	 *
+	 * Ensures unique sr_keys when multiple feeds share the same addon/name.
+	 *
+	 * @param array $form Form array.
+	 * @return int Number of feeds exported.
+	 */
+	public function export_feeds_for_form( array $form ): int {
+		$feeds = \GFAPI::get_feeds( null, (int) ( $form['id'] ?? 0 ), null, null );
+		if ( is_wp_error( $feeds ) || ! is_array( $feeds ) ) {
+			return 0;
+		}
+		$form_sr_key = FeedExporter::get_form_sr_key( $form );
+		$used_keys = [];
+		$count = 0;
+		foreach ( $feeds as $feed ) {
+			$base_key = FeedExporter::get_feed_sr_key( $feed, $form_sr_key );
+			$feed_sr_key = $base_key;
+			$i = 2;
+			while ( isset( $used_keys[ $feed_sr_key ] ) ) {
+				$feed_sr_key = $base_key . '_' . $i;
+				$i++;
+			}
+			$used_keys[ $feed_sr_key ] = true;
+			if ( $this->export_feed( $feed, $form, $feed_sr_key ) ) {
+				$count++;
+			}
+		}
+		return $count;
+	}
+
+	/**
 	 * Export feed to JSON.
 	 *
-	 * @param array $feed Feed array.
-	 * @param array $form Form array.
+	 * @param array  $feed          Feed array.
+	 * @param array  $form          Form array.
+	 * @param string|null $sr_key_override Optional sr_key (ensures uniqueness when exporting multiple feeds).
 	 * @return bool Success.
 	 */
-	public function export_feed( array $feed, array $form ): bool {
-		$feed_sr_key = FeedExporter::get_feed_sr_key( $feed, FeedExporter::get_form_sr_key( $form ) );
+	public function export_feed( array $feed, array $form, ?string $sr_key_override = null ): bool {
+		$feed_sr_key = $sr_key_override ?? FeedExporter::get_feed_sr_key( $feed, FeedExporter::get_form_sr_key( $form ) );
 		$lock_key = 'feed_' . $feed_sr_key;
 
-		return Locks::with_lock( $lock_key, function () use ( $feed, $form, $feed_sr_key ) {
+		return Locks::with_lock( $lock_key, function () use ( $feed, $form, $feed_sr_key, $sr_key_override ) {
 			if ( $this->already_exported( $feed_sr_key ) ) {
 				return true;
 			}
@@ -123,6 +156,9 @@ class Exporter {
 			}
 
 			$data = FeedExporter::prepare_for_export( $feed, $form );
+			if ( $sr_key_override !== null ) {
+				$data['sr_key'] = $feed_sr_key;
+			}
 			$path = $this->storage->get_feed_path( $feed_sr_key );
 			if ( ! $this->storage->write_json( $path, $data ) ) {
 				return false;

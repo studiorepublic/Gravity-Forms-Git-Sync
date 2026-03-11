@@ -116,24 +116,7 @@ class ExportCommand {
 				$exported++;
 				\WP_CLI::log( 'Exported form: ' . $form['title'] . ' (' . $sr_key . ')' . $site_label );
 			}
-			if ( $form_sr_key ) {
-				break;
-			}
-		}
-
-		foreach ( $forms as $form ) {
-			$sr_key = $this->get_form_sr_key( $form );
-			if ( $form_sr_key && $sr_key !== $form_sr_key ) {
-				continue;
-			}
-			$feeds = \GFAPI::get_feeds( $form['id'] );
-			if ( is_array( $feeds ) ) {
-				foreach ( $feeds as $feed ) {
-					if ( $exporter->export_feed( $feed, $form ) ) {
-						$feed_count++;
-					}
-				}
-			}
+			$feed_count += $exporter->export_feeds_for_form( $form );
 			if ( $form_sr_key ) {
 				break;
 			}

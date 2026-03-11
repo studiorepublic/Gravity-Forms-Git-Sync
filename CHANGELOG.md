@@ -4,6 +4,16 @@ All notable changes to Gravity Forms Git Sync are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Visual diff for JSON/DB sync** — When a form is out of sync (`db_ahead`, `json_ahead`, or `conflicts`), a "View diff" action shows a side-by-side comparison of the database vs JSON file using WordPress's `wp_text_diff()`. Handles orphan JSON (only file) and missing JSON (only DB) with single-column previews. Diff styles added to `admin.css` (additions green, deletions red).
+
+### Fixed
+
+- **Feed import on form restore** — When importing a form from JSON (e.g. after removing it from the database), feeds for that form were not restored. Feed import now uses `allow_missing_secrets`, so feeds with unresolved placeholders (e.g. `{{STRIPE_SECRET_KEY}}`) still import; secrets can be configured in the addon settings afterward. Bulk import now also imports feeds for each form.
+
+- **Export only synced one feed** — The Export button and bulk export only exported the form, not its feeds. Export now exports all feeds for each form via `export_feeds_for_form()`. Form save (auto-export) also exports all feeds. Added unique sr_key handling when multiple feeds share the same addon/name (appends _2, _3). Handles `get_feeds` returning WP_Error. The Feeds column used `get_feeds($form_id)` incorrectly (first param is feed_ids); fixed to `get_feeds(null, $form_id, null, null)`.
+
 ## [1.0.4] - 2026-03-04
 
 ## [1.0.3] - 2025-03-04

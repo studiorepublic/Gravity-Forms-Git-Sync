@@ -69,6 +69,7 @@ class AutoExport {
 		}
 		$exporter = new Exporter();
 		$exporter->export_form( $form );
+		$exporter->export_feeds_for_form( $form );
 	}
 
 	/**

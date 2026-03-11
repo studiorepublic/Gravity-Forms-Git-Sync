@@ -86,6 +86,14 @@ class SyncStatusPage {
 		$storage = new Storage();
 		$status = self::compute_status( $storage );
 
+		$view_diff = sanitize_text_field( $_GET['gf_git_sync_view'] ?? '' ) === 'diff';
+		$diff_sr_key = sanitize_text_field( $_GET['sr_key'] ?? '' );
+
+		if ( $view_diff && $diff_sr_key ) {
+			self::render_diff_view( $storage, $status, $diff_sr_key );
+			return;
+		}
+
 		$writable = $storage->is_writable();
 		$status_param = sanitize_text_field( $_GET['gf_git_sync_status'] ?? '' );
 		$error_param = sanitize_text_field( $_GET['gf_git_sync_error'] ?? '' );
@@ -168,11 +176,106 @@ class SyncStatusPage {
 								<?php if ( ! empty( $row['json_path'] ) && file_exists( $row['json_path'] ) ) : ?>
 									<a href="<?php echo esc_url( self::file_url( $row['json_path'] ) ); ?>" class="button button-small" target="_blank"><?php esc_html_e( 'View JSON', 'gravity-forms-git-sync' ); ?></a>
 								<?php endif; ?>
+								<?php
+								$show_diff = in_array( $row['status'] ?? '', [ 'db_ahead', 'json_ahead', 'conflicts' ], true );
+								if ( $show_diff ) :
+									?>
+									<a href="<?php echo esc_url( add_query_arg( [ 'sr_key' => $row['sr_key'] ?? '', 'gf_git_sync_view' => 'diff' ], admin_url( 'admin.php?page=gf-git-sync' ) ) ); ?>" class="button button-small"><?php esc_html_e( 'View diff', 'gravity-forms-git-sync' ); ?></a>
+								<?php endif; ?>
 							</td>
 						</tr>
 					<?php endforeach; ?>
 				</tbody>
 			</table>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the diff view for Database vs JSON.
+	 *
+	 * @param Storage $storage Storage instance.
+	 * @param array   $status  Status from compute_status.
+	 * @param string  $sr_key  Form sr_key.
+	 */
+	private static function render_diff_view( Storage $storage, array $status, string $sr_key ): void {
+		$row = null;
+		foreach ( $status['rows'] as $r ) {
+			if ( ( $r['sr_key'] ?? '' ) === $sr_key ) {
+				$row = $r;
+				break;
+			}
+		}
+
+		if ( ! $row ) {
+			wp_die( esc_html__( 'Form not found.', 'gravity-forms-git-sync' ) );
+		}
+
+		$form_path = $storage->get_form_path( $sr_key );
+		$json_exists = file_exists( $form_path );
+		$json_data = $json_exists ? $storage->read_json( $form_path ) : null;
+		$json_str = $json_data ? wp_json_encode( $json_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . "\n" : '';
+
+		$form = null;
+		if ( ! empty( $row['form_id'] ) ) {
+			$form = \GFAPI::get_form( (int) $row['form_id'] );
+		}
+
+		$db_str = '';
+		if ( $form ) {
+			$exportable = Transformers::normalise_form( $form );
+			$exportable = Transformers::mask_secrets( $exportable );
+			$exportable['sr_key'] = $sr_key;
+			if ( ! empty( $form['gf_git_sync_sr_meta'] ) ) {
+				$exportable['sr_meta'] = $form['gf_git_sync_sr_meta'];
+			}
+			$db_str = wp_json_encode( $exportable, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . "\n";
+		}
+
+		$back_url = admin_url( 'admin.php?page=gf-git-sync' );
+		?>
+		<div class="wrap gf-git-sync-wrap gf-git-sync-diff-wrap">
+			<p><a href="<?php echo esc_url( $back_url ); ?>">&larr; <?php esc_html_e( 'Back to Git Sync', 'gravity-forms-git-sync' ); ?></a></p>
+			<h1><?php echo esc_html( sprintf( /* translators: %s: form title */ __( 'Diff: %s', 'gravity-forms-git-sync' ), $row['title'] ?? $sr_key ) ); ?></h1>
+			<?php
+			if ( ! $form && ! $json_exists ) {
+				echo '<p>' . esc_html__( 'No form or JSON found.', 'gravity-forms-git-sync' ) . '</p>';
+				return;
+			}
+
+			if ( ! $form ) {
+				?>
+				<p class="gf-git-sync-diff-note"><?php esc_html_e( 'No database form to compare. JSON file preview:', 'gravity-forms-git-sync' ); ?></p>
+				<?php
+				$diff = function_exists( 'wp_text_diff' ) ? wp_text_diff( '', $json_str, [
+					'title_left'      => '',
+					'title_right'     => __( 'JSON file', 'gravity-forms-git-sync' ),
+					'show_split_view' => false,
+				] ) : '<pre>' . esc_html( $json_str ) . '</pre>';
+				echo $diff;
+			} elseif ( ! $json_exists ) {
+				?>
+				<p class="gf-git-sync-diff-note"><?php esc_html_e( 'No JSON file to compare. Database preview:', 'gravity-forms-git-sync' ); ?></p>
+				<?php
+				$diff = function_exists( 'wp_text_diff' ) ? wp_text_diff( $db_str, '', [
+					'title_left'      => __( 'Database', 'gravity-forms-git-sync' ),
+					'title_right'     => '',
+					'show_split_view' => false,
+				] ) : '<pre>' . esc_html( $db_str ) . '</pre>';
+				echo $diff;
+			} else {
+				$diff = function_exists( 'wp_text_diff' ) ? wp_text_diff( $db_str, $json_str, [
+					'title_left'      => __( 'Database', 'gravity-forms-git-sync' ),
+					'title_right'     => __( 'JSON file', 'gravity-forms-git-sync' ),
+					'show_split_view' => true,
+				] ) : '';
+				if ( $diff ) {
+					echo '<div class="gf-git-sync-diff-table">' . $diff . '</div>';
+				} else {
+					echo '<p>' . esc_html__( 'No differences found.', 'gravity-forms-git-sync' ) . '</p>';
+				}
+			}
+			?>
 		</div>
 		<?php
 	}
@@ -251,13 +354,12 @@ class SyncStatusPage {
 
 		$status = 'synced';
 		$status_label = __( 'Synced', 'gravity-forms-git-sync' );
-		$can_export = false;
+		$can_export = true; // Always allow export (force refresh JSON).
 		$can_import = false;
 
 		if ( ! $json_exists ) {
 			$status = 'missing_json';
 			$status_label = __( 'Missing JSON', 'gravity-forms-git-sync' );
-			$can_export = true;
 		} elseif ( $json_hash !== $db_hash ) {
 			if ( $last_exported === $db_hash ) {
 				$status = 'json_ahead';
@@ -266,16 +368,14 @@ class SyncStatusPage {
 			} elseif ( $last_imported === $json_hash ) {
 				$status = 'db_ahead';
 				$status_label = __( 'DB ahead', 'gravity-forms-git-sync' );
-				$can_export = true;
 			} else {
 				$status = 'conflicts';
 				$status_label = __( 'Conflicts', 'gravity-forms-git-sync' );
-				$can_export = true;
 				$can_import = true;
 			}
 		}
 
-		$feeds = \GFAPI::get_feeds( $form['id'] );
+		$feeds = \GFAPI::get_feeds( null, $form['id'], null, null );
 		$feeds_count = is_array( $feeds ) ? count( $feeds ) : 0;
 		$feeds_summary = sprintf( _n( '%d feed', '%d feeds', $feeds_count, 'gravity-forms-git-sync' ), $feeds_count );
 

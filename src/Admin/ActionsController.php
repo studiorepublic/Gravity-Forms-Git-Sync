@@ -75,6 +75,9 @@ class ActionsController {
 		}
 		$exporter = new Exporter();
 		$ok = $exporter->export_form( $form );
+		if ( $ok ) {
+			$exporter->export_feeds_for_form( $form );
+		}
 		$status = $ok ? 'exported' : 'export_failed';
 		wp_redirect( add_query_arg( 'gf_git_sync_status', $status, self::redirect_base() ) );
 		exit;
@@ -87,7 +90,8 @@ class ActionsController {
 	 * @param int    $form_id Form ID (optional).
 	 */
 	private static function do_import( string $sr_key, int $form_id ): void {
-		$importer = new Importer();
+		// Allow missing secrets so feeds with placeholders (e.g. {{STRIPE_SECRET_KEY}}) still import.
+		$importer = new Importer( null, null, true );
 		$form_id = $importer->import_form( $sr_key, 'sync' );
 		if ( ! $form_id ) {
 			wp_redirect( add_query_arg( 'gf_git_sync_error', 'import_failed', self::redirect_base() ) );
@@ -124,6 +128,7 @@ class ActionsController {
 				$form = \GFAPI::get_form( $row['form_id'] );
 				if ( $form && $exporter->export_form( $form ) ) {
 					$count++;
+					$exporter->export_feeds_for_form( $form );
 				}
 			}
 		}
@@ -140,12 +145,23 @@ class ActionsController {
 		}
 		$status = SyncStatusPage::compute_status( new Storage() );
 		$count = 0;
-		$importer = new Importer();
+		$importer = new Importer( null, null, true );
+		$storage = $importer->get_storage();
+		$feeds_dir = $storage->get_base_path() . '/feeds';
+		$feed_files = is_dir( $feeds_dir ) ? glob( $feeds_dir . '/*.feed.json' ) : [];
 		foreach ( $status['rows'] as $row ) {
 			if ( ( $row['can_import'] ?? false ) && ! empty( $row['sr_key'] ) ) {
-				$form_id = $importer->import_form( $row['sr_key'], 'sync' );
+				$sr_key = $row['sr_key'];
+				$form_id = $importer->import_form( $sr_key, 'sync' );
 				if ( $form_id ) {
 					$count++;
+					foreach ( $feed_files ?? [] as $feed_path ) {
+						$data = $storage->read_json( $feed_path );
+						if ( $data && ( $data['form_sr_key'] ?? '' ) === $sr_key ) {
+							$feed_sr_key = $data['sr_key'] ?? basename( $feed_path, '.feed.json' );
+							$importer->import_feed( $feed_sr_key, $form_id, 'sync' );
+						}
+					}
 				}
 			}
 		}

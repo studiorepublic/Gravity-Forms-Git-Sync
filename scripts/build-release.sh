@@ -17,7 +17,7 @@ DIST_DIR="$PLUGIN_DIR/dist"
 BUILD_DIR="$PLUGIN_DIR/build"
 
 VERSION="${1:-$(grep "Version:" "$PLUGIN_DIR/gravity-forms-git-sync.php" | sed 's/.*: *//' | tr -d ' ')}"
-ZIP_NAME="gravity-forms-git-sync-${VERSION}.zip"
+ZIP_NAME="gravity-forms-git-sync.zip"
 
 cd "$PLUGIN_DIR"
 

@@ -60,3 +60,49 @@
 .gf-git-sync-table td .button + .button {
 	margin-left: 4px;
 }
+
+/* Diff view (wp_text_diff output) */
+.gf-git-sync-diff-wrap .diff {
+	border-collapse: collapse;
+	width: 100%;
+	table-layout: fixed;
+}
+
+.gf-git-sync-diff-wrap .diff col.diff-content {
+	width: 50%;
+}
+
+.gf-git-sync-diff-wrap .diff td,
+.gf-git-sync-diff-wrap .diff th {
+	padding: 0.5em 1em;
+	vertical-align: top;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	line-height: 1.4;
+	word-wrap: break-word;
+}
+
+.gf-git-sync-diff-wrap .diff th {
+	background: #f0f0f1;
+	font-weight: 600;
+}
+
+.gf-git-sync-diff-wrap .diff .diff-deletedline {
+	background: #f8d7da;
+}
+
+.gf-git-sync-diff-wrap .diff .diff-deletedline ins {
+	display: none;
+}
+
+.gf-git-sync-diff-wrap .diff .diff-addedline {
+	background: #d4edda;
+}
+
+.gf-git-sync-diff-wrap .diff .diff-addedline del {
+	display: none;
+}
+
+.gf-git-sync-diff-wrap .diff .diff-context {
+	background: #fff;
+}
