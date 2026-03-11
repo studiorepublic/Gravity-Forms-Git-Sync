@@ -4,6 +4,8 @@ All notable changes to Gravity Forms Git Sync are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-03-11
+
 ### Added
 
 - **Visual diff for JSON/DB sync** — When a form is out of sync (`db_ahead`, `json_ahead`, or `conflicts`), a "View diff" action shows a side-by-side comparison of the database vs JSON file using WordPress's `wp_text_diff()`. Handles orphan JSON (only file) and missing JSON (only DB) with single-column previews. Diff styles added to `admin.css` (additions green, deletions red).
